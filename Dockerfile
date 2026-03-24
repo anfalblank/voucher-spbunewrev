@@ -5,16 +5,12 @@ WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
-COPY prisma ./prisma/
 
 # Install dependencies
 RUN npm ci
 
 # Copy source code
 COPY . .
-
-# Generate Prisma Client
-RUN npx prisma generate
 
 # Build application
 RUN npm run build
@@ -33,10 +29,15 @@ RUN adduser --system --uid 1001 nextjs
 # Copy necessary files
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/package*.json ./
-COPY --from=builder /app/prisma ./prisma/
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
+COPY --from=builder /app/next.config.js ./
 COPY --from=builder /app/tsconfig.json ./
+COPY --from=builder /app/lib ./lib/
+COPY --from=builder /app/drizzle.config.ts ./
+
+# Create data directory for SQLite
+RUN mkdir -p /app/data && chown -R nextjs:nodejs /app/data
 
 # Set correct permissions
 RUN chown -R nextjs:nodejs /app

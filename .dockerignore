@@ -10,3 +10,28 @@ coverage
 .idea
 dist
 build
+
+# Database files
+*.db
+*.db-shm
+*.db-wal
+
+# Data directories
+.data/
+data/
+
+# Git
+.github/
+.gitignore
+
+# Docs
+README.md
+*.md
+
+# Test files
+*.test.ts
+*.test.tsx
+**/__tests__/
+
+# Deployment files
+deploy.sh
