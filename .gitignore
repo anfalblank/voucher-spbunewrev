@@ -35,3 +35,17 @@ next-env.d.ts
 
 # prisma
 /prisma/migrations/*.sql
+
+# Database files
+*.db
+*.db-shm
+*.db-wal
+.data/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Better Auth session files
+better-auth.session.pem
