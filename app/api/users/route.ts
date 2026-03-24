@@ -1,0 +1,112 @@
+import { NextRequest } from "next/server"
+import { db } from "@/lib/db"
+import { users, sites } from "@/lib/db/schema"
+import { eq, desc, or, like, and } from "drizzle-orm"
+import { nanoid } from "nanoid"
+import bcrypt from "bcryptjs"
+import { successResponse, errorResponse } from "@/lib/api-utils"
+
+// GET /api/users - List all users
+export async function GET(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url)
+    const search = searchParams.get("search") || ""
+    const role = searchParams.get("role") || ""
+
+    let query = db
+      .select({
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        phone: users.phone,
+        role: users.role,
+        siteId: users.siteId,
+        isActive: users.isActive,
+        createdAt: users.createdAt,
+        updatedAt: users.updatedAt,
+      })
+      .from(users)
+
+    const conditions = []
+    if (search) {
+      conditions.push(
+        or(
+          like(users.name, `%${search}%`),
+          like(users.email, `%${search}%`)
+        )
+      )
+    }
+    if (role) {
+      conditions.push(eq(users.role, role as any))
+    }
+
+    const allUsers = conditions.length > 0
+      ? await query.where(and(...conditions)).orderBy(desc(users.createdAt))
+      : await query.orderBy(desc(users.createdAt))
+
+    // Get site info for each user
+    const usersWithSites = await Promise.all(
+      allUsers.map(async (user) => {
+        let site = null
+        if (user.siteId) {
+          site = await db.query.sites.findFirst({
+            where: eq(sites.id, user.siteId),
+          })
+        }
+        return {
+          ...user,
+          site,
+        }
+      })
+    )
+
+    return successResponse({ users: usersWithSites })
+  } catch (error: any) {
+    return errorResponse(error?.message || "Internal server error", 500)
+  }
+}
+
+// POST /api/users - Create new user
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json()
+    const { name, email, phone, password, role, siteId } = body
+
+    if (!name || !email || !password || !role) {
+      return errorResponse("Missing required fields")
+    }
+
+    // Check if email already exists
+    const existing = await db.query.users.findFirst({
+      where: eq(users.email, email),
+    })
+
+    if (existing) {
+      return errorResponse("Email already exists", 400)
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 12)
+
+    const newUser = await db
+      .insert(users)
+      .values({
+        id: nanoid(),
+        name,
+        email,
+        phone,
+        password: hashedPassword,
+        role,
+        siteId,
+        isActive: true,
+      })
+      .returning()
+
+    // Remove password from response
+    const { password: _, ...userWithoutPassword } = newUser[0]
+
+    return successResponse(userWithoutPassword, "User created successfully")
+  } catch (error: any) {
+    return errorResponse(error?.message || "Internal server error", 500)
+  }
+}
