@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null root@43.157.213.54 \"echo ''SSH connection successful'' && uname -a\")",
+      "Bash(ping -c 3 43.157.213.54)",
+      "Bash(nc -zv -w 5 43.157.213.54 22)",
+      "Bash(nc -zv -w 5 43.157.213.54 80)",
+      "Bash(nc -zv -w 5 43.157.213.54 443)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"feat: add Sumopod hosting deployment guide:*)",
+      "Bash(git push:*)"
+    ]
+  }
+}
