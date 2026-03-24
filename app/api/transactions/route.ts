@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server"
 import { db } from "@/lib/db"
-import { transactions, vouchers, sites, users } from "@/lib/db/schema"
+import { transactions, vouchers, outlets, users } from "@/lib/db/schema"
 import { eq, desc, and, gte, lte, or, like } from "drizzle-orm"
 import { nanoid } from "nanoid"
 import { successResponse, errorResponse } from "@/lib/api-utils"
@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
     const limit = parseInt(searchParams.get("limit") || "10")
     const search = searchParams.get("search") || ""
     const status = searchParams.get("status") || ""
-    const siteId = searchParams.get("siteId") || ""
+    const outletId = searchParams.get("outletId") || ""
     const dateFrom = searchParams.get("dateFrom") || ""
     const dateTo = searchParams.get("dateTo") || ""
     const offset = (page - 1) * limit
@@ -22,29 +22,22 @@ export async function GET(req: NextRequest) {
       .select({
         id: transactions.id,
         voucherId: transactions.voucherId,
-        siteId: transactions.siteId,
-        operatorId: transactions.operatorId,
-        vehiclePlate: transactions.vehiclePlate,
-        literAmount: transactions.literAmount,
-        rupiahAmount: transactions.rupiahAmount,
-        odometer: transactions.odometer,
+        outletId: transactions.outletId,
+        userId: transactions.userId,
         status: transactions.status,
-        validatedAt: transactions.validatedAt,
-        metadata: transactions.metadata,
+        notes: transactions.notes,
         createdAt: transactions.createdAt,
-        updatedAt: transactions.updatedAt,
         voucher: {
           id: vouchers.id,
           code: vouchers.code,
           type: vouchers.type,
           value: vouchers.value,
         },
-        site: {
-          id: sites.id,
-          name: sites.name,
-          code: sites.code,
+        outlet: {
+          id: outlets.id,
+          name: outlets.name,
         },
-        operator: {
+        user: {
           id: users.id,
           name: users.name,
           email: users.email,
@@ -52,24 +45,23 @@ export async function GET(req: NextRequest) {
       })
       .from(transactions)
       .leftJoin(vouchers, eq(transactions.voucherId, vouchers.id))
-      .leftJoin(sites, eq(transactions.siteId, sites.id))
-      .leftJoin(users, eq(transactions.operatorId, users.id))
+      .leftJoin(outlets, eq(transactions.outletId, outlets.id))
+      .leftJoin(users, eq(transactions.userId, users.id))
 
     // Build conditions array
     const conditions = []
     if (search) {
       conditions.push(
         or(
-          like(vouchers.code, `%${search}%`),
-          like(transactions.vehiclePlate, `%${search}%`)
+          like(vouchers.code, `%${search}%`)
         )
       )
     }
     if (status) {
       conditions.push(eq(transactions.status, status as any))
     }
-    if (siteId) {
-      conditions.push(eq(transactions.siteId, siteId))
+    if (outletId) {
+      conditions.push(eq(transactions.outletId, outletId))
     }
     if (dateFrom) {
       conditions.push(gte(transactions.createdAt, new Date(dateFrom)))
@@ -84,29 +76,22 @@ export async function GET(req: NextRequest) {
           .select({
             id: transactions.id,
             voucherId: transactions.voucherId,
-            siteId: transactions.siteId,
-            operatorId: transactions.operatorId,
-            vehiclePlate: transactions.vehiclePlate,
-            literAmount: transactions.literAmount,
-            rupiahAmount: transactions.rupiahAmount,
-            odometer: transactions.odometer,
+            outletId: transactions.outletId,
+            userId: transactions.userId,
             status: transactions.status,
-            validatedAt: transactions.validatedAt,
-            metadata: transactions.metadata,
+            notes: transactions.notes,
             createdAt: transactions.createdAt,
-            updatedAt: transactions.updatedAt,
             voucher: {
               id: vouchers.id,
               code: vouchers.code,
               type: vouchers.type,
               value: vouchers.value,
             },
-            site: {
-              id: sites.id,
-              name: sites.name,
-              code: sites.code,
+            outlet: {
+              id: outlets.id,
+              name: outlets.name,
             },
-            operator: {
+            user: {
               id: users.id,
               name: users.name,
               email: users.email,
@@ -114,37 +99,30 @@ export async function GET(req: NextRequest) {
           })
           .from(transactions)
           .leftJoin(vouchers, eq(transactions.voucherId, vouchers.id))
-          .leftJoin(sites, eq(transactions.siteId, sites.id))
-          .leftJoin(users, eq(transactions.operatorId, users.id))
+          .leftJoin(outlets, eq(transactions.outletId, outlets.id))
+          .leftJoin(users, eq(transactions.userId, users.id))
           .where(and(...conditions))
           .orderBy(desc(transactions.createdAt))
       : await db
           .select({
             id: transactions.id,
             voucherId: transactions.voucherId,
-            siteId: transactions.siteId,
-            operatorId: transactions.operatorId,
-            vehiclePlate: transactions.vehiclePlate,
-            literAmount: transactions.literAmount,
-            rupiahAmount: transactions.rupiahAmount,
-            odometer: transactions.odometer,
+            outletId: transactions.outletId,
+            userId: transactions.userId,
             status: transactions.status,
-            validatedAt: transactions.validatedAt,
-            metadata: transactions.metadata,
+            notes: transactions.notes,
             createdAt: transactions.createdAt,
-            updatedAt: transactions.updatedAt,
             voucher: {
               id: vouchers.id,
               code: vouchers.code,
               type: vouchers.type,
               value: vouchers.value,
             },
-            site: {
-              id: sites.id,
-              name: sites.name,
-              code: sites.code,
+            outlet: {
+              id: outlets.id,
+              name: outlets.name,
             },
-            operator: {
+            user: {
               id: users.id,
               name: users.name,
               email: users.email,
@@ -152,8 +130,8 @@ export async function GET(req: NextRequest) {
           })
           .from(transactions)
           .leftJoin(vouchers, eq(transactions.voucherId, vouchers.id))
-          .leftJoin(sites, eq(transactions.siteId, sites.id))
-          .leftJoin(users, eq(transactions.operatorId, users.id))
+          .leftJoin(outlets, eq(transactions.outletId, outlets.id))
+          .leftJoin(users, eq(transactions.userId, users.id))
           .orderBy(desc(transactions.createdAt))
 
     const total = allTransactions.length
@@ -179,16 +157,13 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const {
       voucherId,
-      siteId,
-      operatorId,
-      vehiclePlate,
-      literAmount,
-      rupiahAmount,
-      odometer,
-      status = "COMPLETED",
+      outletId,
+      userId,
+      status = "SUCCESS",
+      notes,
     } = body
 
-    if (!voucherId || !siteId || !operatorId || !literAmount || !rupiahAmount) {
+    if (!voucherId || !outletId || !userId) {
       return errorResponse("Missing required fields")
     }
 
@@ -205,35 +180,24 @@ export async function POST(req: NextRequest) {
       return errorResponse("Voucher is not active", 400)
     }
 
-    if (voucher.currentUsage >= voucher.usageLimit) {
-      return errorResponse("Voucher usage limit reached", 400)
-    }
-
     // Create transaction
     const newTransaction = await db
       .insert(transactions)
       .values({
         id: nanoid(),
         voucherId,
-        siteId,
-        operatorId,
-        vehiclePlate,
-        literAmount: literAmount.toString(),
-        rupiahAmount: rupiahAmount.toString(),
-        odometer,
+        outletId,
+        userId,
         status,
-        validatedAt: new Date(),
+        notes,
       })
       .returning()
 
-    // Update voucher status and usage
+    // Update voucher status to USED
     await db
       .update(vouchers)
       .set({
-        transactionId: newTransaction[0].id,
-        currentUsage: voucher.currentUsage + 1,
-        status: voucher.currentUsage + 1 >= voucher.usageLimit ? "USED" : "ACTIVE",
-        updatedAt: new Date(),
+        status: "USED",
       })
       .where(eq(vouchers.id, voucherId))
 

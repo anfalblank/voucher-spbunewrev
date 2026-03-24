@@ -1,70 +1,61 @@
 import { NextRequest } from "next/server"
 import { db } from "@/lib/db"
-import { sites, users, vouchers, transactions } from "@/lib/db/schema"
+import { outlets, users, vouchers, transactions } from "@/lib/db/schema"
 import { eq, desc, sql, or, like } from "drizzle-orm"
 import { nanoid } from "nanoid"
 import { successResponse, errorResponse } from "@/lib/api-utils"
 
-// GET /api/sites - List all sites
+// GET /api/sites - List all sites (outlets)
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url)
     const search = searchParams.get("search") || ""
 
-    const allSites = search
+    const allOutlets = search
       ? await db
           .select({
-            id: sites.id,
-            name: sites.name,
-            code: sites.code,
-            address: sites.address,
-            phone: sites.phone,
-            isActive: sites.isActive,
-            createdAt: sites.createdAt,
-            updatedAt: sites.updatedAt,
+            id: outlets.id,
+            name: outlets.name,
+            address: outlets.address,
+            phone: outlets.phone,
+            manager: outlets.manager,
+            createdAt: outlets.createdAt,
           })
-          .from(sites)
-          .where(
-            or(
-              like(sites.name, `%${search}%`),
-              like(sites.code, `%${search}%`)
-            )
-          )
-          .orderBy(desc(sites.createdAt))
+          .from(outlets)
+          .where(like(outlets.name, `%${search}%`))
+          .orderBy(desc(outlets.createdAt))
       : await db
           .select({
-            id: sites.id,
-            name: sites.name,
-            code: sites.code,
-            address: sites.address,
-            phone: sites.phone,
-            isActive: sites.isActive,
-            createdAt: sites.createdAt,
-            updatedAt: sites.updatedAt,
+            id: outlets.id,
+            name: outlets.name,
+            address: outlets.address,
+            phone: outlets.phone,
+            manager: outlets.manager,
+            createdAt: outlets.createdAt,
           })
-          .from(sites)
-          .orderBy(desc(sites.createdAt))
+          .from(outlets)
+          .orderBy(desc(outlets.createdAt))
 
-    // Get counts for each site
-    const sitesWithCounts = await Promise.all(
-      allSites.map(async (site) => {
+    // Get counts for each outlet
+    const outletsWithCounts = await Promise.all(
+      allOutlets.map(async (outlet) => {
         const [userCount, voucherCount, transactionCount] = await Promise.all([
           db
             .select({ count: sql<number>`count(*)` })
             .from(users)
-            .where(eq(users.siteId, site.id)),
+            .where(eq(users.outletId, outlet.id)),
           db
             .select({ count: sql<number>`count(*)` })
             .from(vouchers)
-            .where(eq(vouchers.siteId, site.id)),
+            .where(eq(vouchers.outletId, outlet.id)),
           db
             .select({ count: sql<number>`count(*)` })
             .from(transactions)
-            .where(eq(transactions.siteId, site.id)),
+            .where(eq(transactions.outletId, outlet.id)),
         ])
 
         return {
-          ...site,
+          ...outlet,
           _count: {
             users: Number(userCount[0]?.count || 0),
             vouchers: Number(voucherCount[0]?.count || 0),
@@ -74,44 +65,36 @@ export async function GET(req: NextRequest) {
       })
     )
 
-    return successResponse({ sites: sitesWithCounts })
+    return successResponse({ sites: outletsWithCounts })
   } catch (error: any) {
     return errorResponse(error?.message || "Internal server error", 500)
   }
 }
 
-// POST /api/sites - Create new site
+// POST /api/sites - Create new site (outlet)
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { name, code, address, phone } = body
+    const { name, address, latitude, longitude, phone, manager } = body
 
-    if (!name || !code || !address) {
+    if (!name || !address) {
       return errorResponse("Missing required fields")
     }
 
-    // Check if code already exists
-    const existing = await db.query.sites.findFirst({
-      where: eq(sites.code, code),
-    })
-
-    if (existing) {
-      return errorResponse("Site code already exists", 400)
-    }
-
-    const newSite = await db
-      .insert(sites)
+    const newOutlet = await db
+      .insert(outlets)
       .values({
         id: nanoid(),
         name,
-        code,
         address,
-        phone,
-        isActive: true,
+        latitude: latitude || null,
+        longitude: longitude || null,
+        phone: phone || null,
+        manager: manager || null,
       })
       .returning()
 
-    return successResponse(newSite[0], "Site created successfully")
+    return successResponse(newOutlet[0], "Outlet created successfully")
   } catch (error: any) {
     return errorResponse(error?.message || "Internal server error", 500)
   }

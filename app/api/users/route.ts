@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server"
 import { db } from "@/lib/db"
-import { users, sites } from "@/lib/db/schema"
+import { users, outlets } from "@/lib/db/schema"
 import { eq, desc, or, like, and } from "drizzle-orm"
 import { nanoid } from "nanoid"
 import bcrypt from "bcryptjs"
@@ -20,8 +20,9 @@ export async function GET(req: NextRequest) {
         email: users.email,
         phone: users.phone,
         role: users.role,
-        siteId: users.siteId,
+        outletId: users.outletId,
         isActive: users.isActive,
+        emailVerified: users.emailVerified,
         createdAt: users.createdAt,
         updatedAt: users.updatedAt,
       })
@@ -44,23 +45,23 @@ export async function GET(req: NextRequest) {
       ? await query.where(and(...conditions)).orderBy(desc(users.createdAt))
       : await query.orderBy(desc(users.createdAt))
 
-    // Get site info for each user
-    const usersWithSites = await Promise.all(
+    // Get outlet info for each user
+    const usersWithOutlets = await Promise.all(
       allUsers.map(async (user) => {
-        let site = null
-        if (user.siteId) {
-          site = await db.query.sites.findFirst({
-            where: eq(sites.id, user.siteId),
+        let outlet = null
+        if (user.outletId) {
+          outlet = await db.query.outlets.findFirst({
+            where: eq(outlets.id, user.outletId),
           })
         }
         return {
           ...user,
-          site,
+          outlet,
         }
       })
     )
 
-    return successResponse({ users: usersWithSites })
+    return successResponse({ users: usersWithOutlets })
   } catch (error: any) {
     return errorResponse(error?.message || "Internal server error", 500)
   }
@@ -70,7 +71,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { name, email, phone, password, role, siteId } = body
+    const { name, email, phone, password, role, outletId } = body
 
     if (!name || !email || !password || !role) {
       return errorResponse("Missing required fields")
@@ -97,7 +98,7 @@ export async function POST(req: NextRequest) {
         phone,
         password: hashedPassword,
         role,
-        siteId,
+        outletId,
         isActive: true,
       })
       .returning()

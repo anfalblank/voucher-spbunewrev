@@ -8,7 +8,8 @@
       "Bash(nc -zv -w 5 43.157.213.54 443)",
       "Bash(git add:*)",
       "Bash(git commit -m \"feat: add Sumopod hosting deployment guide:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(git commit:*)"
     ]
   }
 }
