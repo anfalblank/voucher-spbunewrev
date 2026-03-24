@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server"
 import { db } from "@/lib/db"
 import { outlets, users, vouchers, transactions } from "@/lib/db/schema"
-import { eq, desc, sql, or, like } from "drizzle-orm"
+import { eq, desc, sql, like } from "drizzle-orm"
 import { nanoid } from "nanoid"
 import { successResponse, errorResponse } from "@/lib/api-utils"
 
@@ -16,9 +16,10 @@ export async function GET(req: NextRequest) {
           .select({
             id: outlets.id,
             name: outlets.name,
+            code: outlets.code,
             address: outlets.address,
             phone: outlets.phone,
-            manager: outlets.manager,
+            status: outlets.status,
             createdAt: outlets.createdAt,
           })
           .from(outlets)
@@ -28,9 +29,10 @@ export async function GET(req: NextRequest) {
           .select({
             id: outlets.id,
             name: outlets.name,
+            code: outlets.code,
             address: outlets.address,
             phone: outlets.phone,
-            manager: outlets.manager,
+            status: outlets.status,
             createdAt: outlets.createdAt,
           })
           .from(outlets)
@@ -75,10 +77,19 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { name, address, latitude, longitude, phone, manager } = body
+    const { name, code, address, phone } = body
 
-    if (!name || !address) {
-      return errorResponse("Missing required fields")
+    if (!name || !code || !address) {
+      return errorResponse("Missing required fields: name, code, address")
+    }
+
+    // Check if code already exists
+    const existing = await db.query.outlets.findFirst({
+      where: eq(outlets.code, code),
+    })
+
+    if (existing) {
+      return errorResponse("Outlet code already exists", 400)
     }
 
     const newOutlet = await db
@@ -86,11 +97,9 @@ export async function POST(req: NextRequest) {
       .values({
         id: nanoid(),
         name,
+        code,
         address,
-        latitude: latitude || null,
-        longitude: longitude || null,
         phone: phone || null,
-        manager: manager || null,
       })
       .returning()
 
