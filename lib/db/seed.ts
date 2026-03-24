@@ -10,14 +10,14 @@ async function seed() {
   // Create Outlets (8 outlets)
   console.log("Creating outlets...")
   const outletData = [
-    { id: nanoid(), name: "SPBU 34-12345", code: "34-12345", address: "Jl. Sudirman No. 123, Jakarta Pusat", phone: "021-1234567", status: "ACTIVE" },
-    { id: nanoid(), name: "SPBU 34-12346", code: "34-12346", address: "Jl. Gatot Subroto No. 456, Jakarta Selatan", phone: "021-2345678", status: "ACTIVE" },
-    { id: nanoid(), name: "SPBU 34-12347", code: "34-12347", address: "Jl. Tomang No. 789, Jakarta Barat", phone: "021-3456789", status: "ACTIVE" },
-    { id: nanoid(), name: "SPBU 34-12348", code: "34-12348", address: "Jl. Pemuda No. 321, Jakarta Timur", phone: "021-4567890", status: "ACTIVE" },
-    { id: nanoid(), name: "SPBU 34-12349", code: "34-12349", address: "Jl. Fatmawati No. 654, Jakarta Selatan", phone: "021-5678901", status: "ACTIVE" },
-    { id: nanoid(), name: "SPBU 34-12350", code: "34-12350", address: "Jl. Daan Mogot No. 987, Jakarta Barat", phone: "021-6789012", status: "ACTIVE" },
-    { id: nanoid(), name: "SPBU 34-12351", code: "34-12351", address: "Jl. Panjang No. 246, Jakarta Barat", phone: "021-7890123", status: "ACTIVE" },
-    { id: nanoid(), name: "SPBU 34-12352", code: "34-12352", address: "Jl. Pramuka No. 135, Jakarta Pusat", phone: "021-8901234", status: "ACTIVE" },
+    { id: nanoid(), name: "SPBU 34-12345", code: "34-12345", address: "Jl. Sudirman No. 123, Jakarta Pusat", phone: "021-1234567", status: "ACTIVE" as const },
+    { id: nanoid(), name: "SPBU 34-12346", code: "34-12346", address: "Jl. Gatot Subroto No. 456, Jakarta Selatan", phone: "021-2345678", status: "ACTIVE" as const },
+    { id: nanoid(), name: "SPBU 34-12347", code: "34-12347", address: "Jl. Tomang No. 789, Jakarta Barat", phone: "021-3456789", status: "ACTIVE" as const },
+    { id: nanoid(), name: "SPBU 34-12348", code: "34-12348", address: "Jl. Pemuda No. 321, Jakarta Timur", phone: "021-4567890", status: "ACTIVE" as const },
+    { id: nanoid(), name: "SPBU 34-12349", code: "34-12349", address: "Jl. Fatmawati No. 654, Jakarta Selatan", phone: "021-5678901", status: "ACTIVE" as const },
+    { id: nanoid(), name: "SPBU 34-12350", code: "34-12350", address: "Jl. Daan Mogot No. 987, Jakarta Barat", phone: "021-6789012", status: "ACTIVE" as const },
+    { id: nanoid(), name: "SPBU 34-12351", code: "34-12351", address: "Jl. Panjang No. 246, Jakarta Barat", phone: "021-7890123", status: "ACTIVE" as const },
+    { id: nanoid(), name: "SPBU 34-12352", code: "34-12352", address: "Jl. Pramuka No. 135, Jakarta Pusat", phone: "021-8901234", status: "ACTIVE" as const },
   ]
 
   const createdOutlets = await db.insert(outlets).values(outletData).returning()
