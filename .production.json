@@ -1,0 +1,12 @@
+{
+  "name": "voucher-spbu",
+  "version": "1.0.0",
+  "description": "SPBU Voucher Management System - Production Deployment",
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  },
+  "scripts": {
+    "postinstall": "npx next build || echo 'Build will be done by cPanel'"
+  }
+}
