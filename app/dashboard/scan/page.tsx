@@ -18,8 +18,7 @@ import {
   Fuel,
   RefreshCw,
 } from "lucide-react"
-import { useSession } from "@/lib/auth-client"
-import { signOut } from "@/lib/auth-client"
+import { authClient, useSession } from "@/lib/auth-client"
 
 type ScanState = "idle" | "scanning" | "found" | "validating" | "success" | "error"
 
@@ -52,6 +51,7 @@ export default function ScanPage() {
   const [voucherCode, setVoucherCode] = useState("")
   const [cameraActive, setCameraActive] = useState(false)
   const [manualInput, setManualInput] = useState(false)
+  const [scanError, setScanError] = useState("")
 
   // Shift data
   const [shiftData, setShiftData] = useState<ShiftData | null>(null)
@@ -104,8 +104,6 @@ export default function ScanPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           code: voucherCode,
-          operatorId: user?.id,
-          outletId: user?.outletId,
         }),
       })
 
@@ -144,16 +142,19 @@ export default function ScanPage() {
           setScanState(cameraActive ? "scanning" : "idle")
         }, 3000)
       } else {
+        setScanError(result.error || "Voucher tidak dapat diproses")
         setScanState("error")
       }
     } catch (err: any) {
       console.error("Scan error:", err)
+      setScanError("Terjadi kesalahan pada koneksi server")
       setScanState("error")
     }
   }
 
   const resetScan = () => {
     setVoucherCode("")
+    setScanError("")
     setScanState(cameraActive ? "scanning" : "idle")
   }
 
@@ -205,7 +206,7 @@ ${Object.entries(
   }
 
   const handleLogout = async () => {
-    await signOut({
+    await authClient.signOut({
       fetchOptions: {
         onSuccess: () => {
           window.location.href = "/login"
@@ -395,9 +396,9 @@ ${Object.entries(
                   <div className="flex items-start gap-3">
                     <XCircle className="h-6 w-6 text-red-600 flex-shrink-0 mt-0.5" />
                     <div>
-                      <p className="font-medium text-red-800">Voucher Tidak Valid</p>
+                      <p className="font-medium text-red-800">Validasi Gagal</p>
                       <p className="text-sm text-red-700 mt-1">
-                        Voucher tidak ditemukan, sudah digunakan, atau sudah expired.
+                        {scanError || "Voucher tidak ditemukan, sudah digunakan, atau tidak valid."}
                       </p>
                     </div>
                   </div>

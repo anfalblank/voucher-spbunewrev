@@ -3,11 +3,13 @@ import { db } from "@/lib/db"
 import { transactions, vouchers, outlets, users } from "@/lib/db/schema"
 import { eq, desc, and, gte, lte, or, like } from "drizzle-orm"
 import { nanoid } from "nanoid"
-import { successResponse, errorResponse } from "@/lib/api-utils"
+import { successResponse, errorResponse, requireRoles } from "@/lib/api-utils"
 
 // GET /api/transactions - List all transactions
 export async function GET(req: NextRequest) {
   try {
+    const { session, error: authError } = await requireRoles(req, ["ADMIN", "OWNER"])
+    if (authError) return authError
     const { searchParams } = new URL(req.url)
     const page = parseInt(searchParams.get("page") || "1")
     const limit = parseInt(searchParams.get("limit") || "10")
@@ -154,6 +156,9 @@ export async function GET(req: NextRequest) {
 // POST /api/transactions - Create new transaction
 export async function POST(req: NextRequest) {
   try {
+    const { session, error: authError } = await requireRoles(req, ["ADMIN", "OWNER"])
+    if (authError) return authError
+
     const body = await req.json()
     const {
       voucherId,

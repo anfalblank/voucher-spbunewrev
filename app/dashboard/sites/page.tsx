@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -23,51 +23,32 @@ import Link from "next/link"
 export default function SitesPage() {
   const [searchQuery, setSearchQuery] = useState("")
 
-  // Mock data - will be replaced with API calls
-  const sites = [
-    {
-      id: "1",
-      name: "SPBU 34-12345",
-      code: "34-12345",
-      address: "Jl. Sudirman No. 123, Jakarta Pusat",
-      phone: "021-1234567",
-      isActive: true,
-      createdAt: "2024-01-01",
-      _count: {
-        users: 5,
-        vouchers: 156,
-        transactions: 78,
-      },
-    },
-    {
-      id: "2",
-      name: "SPBU 34-12346",
-      code: "34-12346",
-      address: "Jl. Gatot Subroto No. 456, Jakarta Selatan",
-      phone: "021-7654321",
-      isActive: true,
-      createdAt: "2024-01-05",
-      _count: {
-        users: 4,
-        vouchers: 120,
-        transactions: 65,
-      },
-    },
-    {
-      id: "3",
-      name: "SPBU 34-12347",
-      code: "34-12347",
-      address: "Jl. Daan Mogot No. 789, Jakarta Barat",
-      phone: "021-9876543",
-      isActive: false,
-      createdAt: "2024-01-10",
-      _count: {
-        users: 3,
-        vouchers: 45,
-        transactions: 20,
-      },
-    },
-  ]
+  const [sites, setSites] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetchSites()
+  }, [])
+
+  const fetchSites = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch("/api/outlets")
+      const result = await response.json()
+      if (result.success) {
+        // Need _count fallback if it doesn't exist
+        const fetchedSites = result.data.outlets.map((site: any) => ({
+          ...site,
+          _count: site._count || { users: 0, vouchers: 0, transactions: 0 }
+        }))
+        setSites(fetchedSites)
+      }
+    } catch (err) {
+      console.error("Failed to fetch sites:", err)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <div className="space-y-6">

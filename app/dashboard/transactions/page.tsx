@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -11,84 +11,121 @@ import {
   Download,
   CheckCircle,
   XCircle,
-  Clock,
   AlertCircle,
-  Calendar,
+  Loader2,
 } from "lucide-react"
+import { exportToExcel, exportToPDF } from "@/lib/export-utils"
 
 export default function TransactionsPage() {
+  const [transactions, setTransactions] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
+
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState("")
   const [dateFrom, setDateFrom] = useState("")
   const [dateTo, setDateTo] = useState("")
 
-  // Mock data - will be replaced with API calls
-  const transactions = [
-    {
-      id: "1",
-      voucherCode: "VOU-LX123456",
-      voucherType: "RUPIAH",
-      voucherValue: 100000,
-      site: { name: "SPBU 34-12345", code: "34-12345" },
-      operator: { name: "Ahmad Supriadi", email: "ahmad@spbu.co.id" },
-      vehiclePlate: "B 1234 ABC",
-      literAmount: 14.93,
-      rupiahAmount: 100000,
-      status: "COMPLETED",
-      validatedAt: "2024-01-15T10:30:00Z",
-      createdAt: "2024-01-15T10:30:00Z",
-    },
-    {
-      id: "2",
-      voucherCode: "VOU-LX123457",
-      voucherType: "LITER",
-      voucherValue: 10,
-      site: { name: "SPBU 34-12346", code: "34-12346" },
-      operator: { name: "Budi Santoso", email: "budi@spbu.co.id" },
-      vehiclePlate: "B 5678 DEF",
-      literAmount: 10,
-      rupiahAmount: 67000,
-      status: "COMPLETED",
-      validatedAt: "2024-01-15T11:15:00Z",
-      createdAt: "2024-01-15T11:15:00Z",
-    },
-    {
-      id: "3",
-      voucherCode: "VOU-LX123458",
-      voucherType: "RUPIAH",
-      voucherValue: 50000,
-      site: { name: "SPBU 34-12345", code: "34-12345" },
-      operator: { name: "Sari Wulandari", email: "sari@spbu.co.id" },
-      vehiclePlate: "B 9012 GHI",
-      literAmount: 7.46,
-      rupiahAmount: 50000,
-      status: "DISPUTED",
-      validatedAt: "2024-01-15T12:00:00Z",
-      createdAt: "2024-01-15T12:00:00Z",
-    },
-    {
-      id: "4",
-      voucherCode: "VOU-LX123459",
-      voucherType: "FLAT",
-      voucherValue: 6700,
-      site: { name: "SPBU 34-12347", code: "34-12347" },
-      operator: { name: "Dedi Kurniawan", email: "dedi@spbu.co.id" },
-      vehiclePlate: "B 3456 JKL",
-      literAmount: 15,
-      rupiahAmount: 100500,
-      status: "CANCELLED",
-      validatedAt: "2024-01-15T12:30:00Z",
-      createdAt: "2024-01-15T12:30:00Z",
-    },
-  ]
+  useEffect(() => {
+    fetchTransactions()
+  }, []) // Load on mount
+
+  const fetchTransactions = async () => {
+    try {
+      setLoading(true)
+      setError("")
+
+      const params = new URLSearchParams()
+      if (searchQuery) params.append("search", searchQuery)
+      if (statusFilter) params.append("status", statusFilter)
+      if (dateFrom) params.append("dateFrom", dateFrom)
+      // For dateTo to include the whole day end
+      if (dateTo) {
+        const to = new Date(dateTo)
+        to.setHours(23, 59, 59)
+        params.append("dateTo", to.toISOString())
+      }
+
+      params.append("limit", "100") // Set high limit for exporting convenience (or handle pagination)
+
+      const response = await fetch(`/api/transactions?${params.toString()}`)
+      const result = await response.json()
+
+      if (result.success) {
+        // Format properties early for UI & Export safety
+        const formatted = result.data.transactions.map((tx: any) => {
+          let rupiahValue = "--"
+          let literValue = "--"
+          const val = parseFloat(tx.voucher?.value || "0")
+
+          if (tx.voucher?.type === "CREDIT") {
+            literValue = `${val} Liter`
+            rupiahValue = formatCurrency(val * 10000) // Assumed estimate
+          } else {
+            rupiahValue = formatCurrency(val)
+          }
+
+          return {
+            ...tx,
+            literalAmount: literValue,
+            rupiahAmount: rupiahValue,
+            timeFormatted: formatDate(tx.createdAt),
+          }
+        })
+
+        setTransactions(formatted)
+      } else {
+        setError(result.error || "Gagal mengambil data transaksi")
+      }
+    } catch (err: any) {
+      setError("Terjadi kesalahan sistem")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleExportPDF = () => {
+    exportToPDF(
+      "Laporan Riwayat Transaksi",
+      transactions,
+      [
+        { header: "Kode", key: "voucher.code" },
+        { header: "Outlet", key: "outlet.name" },
+        { header: "Operator", key: "user.name" },
+        { header: "Tipe", key: "voucher.type" },
+        { header: "Liter", key: "literalAmount" },
+        { header: "Nominal", key: "rupiahAmount" },
+        { header: "Status", key: "status" },
+        { header: "Waktu", key: "timeFormatted" },
+      ],
+      `Transaksi_SPBU_${new Date().getTime()}`
+    )
+  }
+
+  const handleExportExcel = () => {
+    exportToExcel(
+      transactions,
+      [
+        { header: "Kode Voucher", key: "voucher.code" },
+        { header: "Outlet Pelaksana", key: "outlet.name" },
+        { header: "Operator Shift", key: "user.name" },
+        { header: "Jenis Kuota", key: "voucher.type" },
+        { header: "Volume Liter", key: "literalAmount" },
+        { header: "Nilai Nominal (Estimasi Rp)", key: "rupiahAmount" },
+        { header: "Status Transaksi", key: "status" },
+        { header: "Waktu Validasi", key: "timeFormatted" },
+      ],
+      `Transaksi_SPBU_${new Date().getTime()}`
+    )
+  }
 
   const getStatusBadge = (status: string) => {
-    const statusConfig = {
-      COMPLETED: { label: "Selesai", color: "bg-green-100 text-green-700", icon: CheckCircle },
+    const statusConfig: Record<string, any> = {
+      SUCCESS: { label: "Selesai", color: "bg-green-100 text-green-700", icon: CheckCircle },
       CANCELLED: { label: "Dibatalkan", color: "bg-red-100 text-red-700", icon: XCircle },
       DISPUTED: { label: "Dispute", color: "bg-yellow-100 text-yellow-700", icon: AlertCircle },
     }
-    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.COMPLETED
+    const config = statusConfig[status] || { label: status, color: "bg-gray-100 text-gray-700", icon: CheckCircle }
     const Icon = config.icon
     return (
       <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${config.color}`}>
@@ -118,16 +155,19 @@ export default function TransactionsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Riwayat Transaksi</h1>
           <p className="text-gray-600 mt-1">Semua transaksi voucher bahan bakar</p>
         </div>
-        <Button variant="outline">
-          <Download className="h-4 w-4 mr-2" />
-          Export
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={handleExportPDF} disabled={loading || transactions.length === 0}>
+            <Download className="h-4 w-4 mr-2" /> PDF
+          </Button>
+          <Button variant="outline" onClick={handleExportExcel} disabled={loading || transactions.length === 0}>
+            <Download className="h-4 w-4 mr-2" /> Excel
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -139,13 +179,13 @@ export default function TransactionsPage() {
         <CardContent>
           <div className="grid gap-4 md:grid-cols-5">
             <div className="md:col-span-2">
-              <Label htmlFor="search">Cari Transaksi</Label>
+              <Label htmlFor="search">Cari Kode</Label>
               <div className="relative mt-1">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
                   id="search"
                   type="text"
-                  placeholder="Kode voucher, plat nomor..."
+                  placeholder="VOU-..."
                   className="pl-10"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -161,7 +201,7 @@ export default function TransactionsPage() {
                 onChange={(e) => setStatusFilter(e.target.value)}
               >
                 <option value="">Semua Status</option>
-                <option value="COMPLETED">Selesai</option>
+                <option value="SUCCESS">Selesai</option>
                 <option value="DISPUTED">Dispute</option>
                 <option value="CANCELLED">Dibatalkan</option>
               </select>
@@ -186,7 +226,7 @@ export default function TransactionsPage() {
             </div>
           </div>
           <div className="flex justify-end mt-4">
-            <Button>
+            <Button onClick={fetchTransactions} disabled={loading}>
               <Filter className="h-4 w-4 mr-2" />
               Terapkan Filter
             </Button>
@@ -197,74 +237,81 @@ export default function TransactionsPage() {
       {/* Transaction List */}
       <Card>
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Voucher
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Site & Operator
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Kendaraan
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Nilai
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Waktu
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {transactions.map((tx) => (
-                  <tr key={tx.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{tx.voucherCode}</div>
-                      <div className="text-xs text-gray-500">{tx.voucherType}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{tx.site.name}</div>
-                      <div className="text-xs text-gray-500">{tx.operator.name}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{tx.vehiclePlate}</div>
-                      <div className="text-xs text-gray-500">{tx.literAmount} Liter</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{formatCurrency(tx.rupiahAmount)}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{formatDate(tx.validatedAt)}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {getStatusBadge(tx.status)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          {loading ? (
+             <div className="flex items-center justify-center py-12">
+               <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+               <span className="ml-2 text-gray-600">Memuat riwayat transaksi...</span>
+             </div>
+          ) : error ? (
+            <div className="flex items-center justify-center py-12">
+              <span className="text-red-500">{error}</span>
+            </div>
+          ) : transactions.length === 0 ? (
+            <div className="flex items-center justify-center py-16">
+              <span className="text-gray-500">Tidak ada riwayat transaksi yang ditemukan.</span>
+            </div>
+          ) : (
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Voucher
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Lokasi & Shift
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Volume
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Estimasi Rp
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Waktu Validasi
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Status
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {transactions.map((tx) => (
+                      <tr key={tx.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">{tx.voucher?.code || "-"}</div>
+                          <div className="text-xs text-gray-500">{tx.voucher?.type || "-"}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">{tx.outlet?.name || "-"}</div>
+                          <div className="text-xs text-gray-500">{tx.user?.name || "-"}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">{tx.literalAmount}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">{tx.rupiahAmount}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">{tx.timeFormatted}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {getStatusBadge(tx.status)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
 
-          {/* Pagination */}
-          <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
-            <div className="text-sm text-gray-500">
-              Menampilkan 1-4 dari 456 transaksi
-            </div>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" disabled>
-                Previous
-              </Button>
-              <Button variant="outline" size="sm">
-                Next
-              </Button>
-            </div>
-          </div>
+              <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
+                <div className="text-sm text-gray-500">
+                  Menampilkan total {transactions.length} transaksi yg dimuat.
+                </div>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
     </div>

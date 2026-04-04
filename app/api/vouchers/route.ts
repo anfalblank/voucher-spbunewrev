@@ -3,11 +3,14 @@ import { db } from "@/lib/db"
 import { vouchers, outlets, users } from "@/lib/db/schema"
 import { eq, and, desc, like } from "drizzle-orm"
 import { nanoid } from "nanoid"
-import { successResponse, errorResponse } from "@/lib/api-utils"
+import { successResponse, errorResponse, requireRoles } from "@/lib/api-utils"
 
 // GET /api/vouchers - List all vouchers with filters
 export async function GET(req: NextRequest) {
   try {
+    const { session, error: authError } = await requireRoles(req, ["ADMIN", "OWNER"])
+    if (authError) return authError
+
     const { searchParams } = new URL(req.url)
     const page = parseInt(searchParams.get("page") || "1")
     const limit = parseInt(searchParams.get("limit") || "10")
@@ -110,15 +113,19 @@ export async function GET(req: NextRequest) {
 // POST /api/vouchers - Create new voucher(s)
 export async function POST(req: NextRequest) {
   try {
+    const { session, error: authError } = await requireRoles(req, ["ADMIN", "OWNER"])
+    if (authError) return authError
+
     const body = await req.json()
     const {
       type,
       value,
       expiryDate,
       outletId,
-      createdBy,
       quantity = 1,
     } = body
+
+    const createdBy = session!.user.id
 
     // Validate required fields
     if (!type || !value || !expiryDate || !outletId || !createdBy) {

@@ -6,15 +6,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { ArrowLeft, Save, QrCode, Loader2 } from "lucide-react"
+import { ArrowLeft, Save, Loader2 } from "lucide-react"
 import Link from "next/link"
+import { toast } from "sonner"
 
 export default function NewVoucherPage() {
   const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [error, setError] = useState("")
   const [outlets, setOutlets] = useState<any[]>([])
   const [loadingOutlets, setLoadingOutlets] = useState(true)
+  const [displayValue, setDisplayValue] = useState("")
+
   const [formData, setFormData] = useState({
     type: "FIXED",
     value: "",
@@ -38,16 +40,27 @@ export default function NewVoucherPage() {
         setOutlets(result.data.outlets || [])
       }
     } catch (err) {
-      console.error("Failed to fetch outlets:", err)
+      toast.error("Gagal mengambil daftar outlet.")
     } finally {
       setLoadingOutlets(false)
     }
   }
 
+  const handleValueChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawVal = e.target.value.replace(/\D/g, "")
+    if (!rawVal) {
+      setDisplayValue("")
+      setFormData({ ...formData, value: "" })
+      return
+    }
+    const formatted = parseInt(rawVal, 10).toLocaleString("id-ID")
+    setDisplayValue(formatted)
+    setFormData({ ...formData, value: rawVal })
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
-    setError("")
 
     try {
       const payload = {
@@ -68,13 +81,14 @@ export default function NewVoucherPage() {
       const result = await response.json()
 
       if (result.success) {
+        toast.success(`Berhasil membuat ${formData.quantity} voucher baru!`)
         router.push("/dashboard/vouchers")
         router.refresh()
       } else {
-        setError(result.error || "Gagal membuat voucher")
+        toast.error(result.error || "Gagal membuat voucher")
       }
     } catch (err: any) {
-      setError(err.message || "Terjadi kesalahan")
+      toast.error(err.message || "Terjadi kesalahan")
     } finally {
       setIsSubmitting(false)
     }
@@ -103,12 +117,6 @@ export default function NewVoucherPage() {
           <p className="text-gray-600 mt-1">Generate voucher bahan bakar untuk outlet SPBU</p>
         </div>
       </div>
-
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-          {error}
-        </div>
-      )}
 
       <form onSubmit={handleSubmit}>
         <div className="grid gap-6 lg:grid-cols-3">
@@ -208,10 +216,10 @@ export default function NewVoucherPage() {
                     </Label>
                     <Input
                       id="value"
-                      type="number"
-                      placeholder={formData.type === "FIXED" ? "100000" : formData.type === "CREDIT" ? "10" : "20"}
-                      value={formData.value}
-                      onChange={(e) => setFormData({ ...formData, value: e.target.value })}
+                      type="text"
+                      placeholder={formData.type === "FIXED" ? "100.000" : formData.type === "CREDIT" ? "10" : "20"}
+                      value={displayValue}
+                      onChange={handleValueChange}
                       required
                     />
                   </div>

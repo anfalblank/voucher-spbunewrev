@@ -4,11 +4,13 @@ import { users, outlets } from "@/lib/db/schema"
 import { eq, desc, or, like, and } from "drizzle-orm"
 import { nanoid } from "nanoid"
 import bcrypt from "bcryptjs"
-import { successResponse, errorResponse } from "@/lib/api-utils"
+import { successResponse, errorResponse, requireRoles } from "@/lib/api-utils"
 
 // GET /api/users - List all users
 export async function GET(req: NextRequest) {
   try {
+    const { session, error: authError } = await requireRoles(req, ["ADMIN"])
+    if (authError) return authError
     const { searchParams } = new URL(req.url)
     const search = searchParams.get("search") || ""
     const role = searchParams.get("role") || ""
@@ -70,6 +72,9 @@ export async function GET(req: NextRequest) {
 // POST /api/users - Create new user
 export async function POST(req: NextRequest) {
   try {
+    const { session, error: authError } = await requireRoles(req, ["ADMIN"])
+    if (authError) return authError
+
     const body = await req.json()
     const { name, email, phone, password, role, outletId } = body
 

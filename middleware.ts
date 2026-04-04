@@ -4,7 +4,7 @@ import type { NextRequest } from "next/server"
 function hasSessionCookie(req: NextRequest): boolean {
   const cookies = req.cookies.getAll()
   return cookies.some(cookie =>
-    cookie.name.startsWith("better-auth.session_token")
+    cookie.name.includes("session_token")
   )
 }
 
@@ -14,17 +14,32 @@ export async function middleware(req: NextRequest) {
 
   const isAuthPage = path === "/login" || path.startsWith("/login/")
   const isDashboardPage = path === "/dashboard" || path.startsWith("/dashboard/")
-  const isPublicPage = path === "/"
+  const isApiAuthPage = path.startsWith("/api/auth")
+  const isApiPage = path.startsWith("/api/") && !isApiAuthPage
 
   // Redirect to dashboard if already logged in and trying to access login
   if (isAuthPage && hasSession) {
     return NextResponse.redirect(new URL("/dashboard", req.url))
   }
 
-  // Redirect to login if not logged in and trying to access dashboard
-  if (isDashboardPage && !hasSession) {
-    const loginUrl = new URL("/login", req.url)
-    return NextResponse.redirect(loginUrl)
+  // Handle protected pages
+  if (!hasSession) {
+    if (isDashboardPage) {
+      const loginUrl = new URL("/login", req.url)
+      return NextResponse.redirect(loginUrl)
+    }
+    
+    if (isApiPage) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized access" },
+        { status: 401 }
+      )
+    }
+    
+    // In case there are other protected web routes
+    if (!isAuthPage && path !== "/" && !isApiAuthPage) {
+      return NextResponse.redirect(new URL("/login", req.url))
+    }
   }
 
   return NextResponse.next()
@@ -32,25 +47,12 @@ export async function middleware(req: NextRequest) {
 
 export const config = {
   matcher: [
-    // Match root and auth pages
-    "/",
-    "/login",
-    "/login/:path*",
-
-    // Match dashboard and all dashboard routes
-    "/dashboard",
-    "/dashboard/:path*",
-
-    // Admin routes
-    "/admin/:path*",
-
-    // Other protected routes
-    "/sites/:path*",
-    "/vouchers/:path*",
-    "/transactions/:path*",
-    "/reports/:path*",
-    "/users/:path*",
-    "/scan/:path*",
-    "/operators/:path*",
+    /*
+     * Match all request paths except for the ones starting with:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     */
+    "/((?!_next/static|_next/image|favicon.ico).*)",
   ],
 }

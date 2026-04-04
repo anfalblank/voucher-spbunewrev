@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -9,14 +9,16 @@ import {
   QrCode,
   Download,
   Printer,
-  Share2,
   CheckCircle,
   XCircle,
-  Clock,
   AlertCircle,
   Loader2,
+  Clock,
 } from "lucide-react"
 import Link from "next/link"
+import { toast } from "sonner"
+import QRCode from "qrcode"
+import jsPDF from "jspdf"
 
 interface Voucher {
   id: string
@@ -53,12 +55,32 @@ export default function VoucherDetailPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [showQrCode, setShowQrCode] = useState(true)
+  const [qrDataUrl, setQrDataUrl] = useState<string>("")
 
   useEffect(() => {
     if (params.id) {
       fetchVoucher(params.id as string)
     }
   }, [params.id])
+
+  useEffect(() => {
+    if (voucher?.id) {
+      // Generate real QR code image representation of voucher ID or Code
+      // Depends on backend verification architecture, id is safer.
+      QRCode.toDataURL(voucher.id, {
+        width: 300,
+        margin: 2,
+        color: {
+          dark: "#000000",
+          light: "#FFFFFF"
+        }
+      }).then((url: string) => {
+        setQrDataUrl(url)
+      }).catch((err: any) => {
+        console.error("Failed to generate QR", err)
+      })
+    }
+  }, [voucher])
 
   const fetchVoucher = async (id: string) => {
     try {
@@ -72,11 +94,72 @@ export default function VoucherDetailPage() {
         setVoucher(result.data)
       } else {
         setError(result.error || "Gagal mengambil data voucher")
+        toast.error("Gagal memuat detail voucher")
       }
     } catch (err: any) {
       setError(err.message || "Terjadi kesalahan")
+      toast.error("Terjadi error pada koneksi")
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleDownloadPNG = () => {
+    if (!qrDataUrl || !voucher) return
+    const link = document.createElement("a")
+    link.href = qrDataUrl
+    link.download = `Voucher-${voucher.code}.png`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    toast.success("Gambar QR berhasil diunduh")
+  }
+
+  const handlePrintPDF = () => {
+    if (!qrDataUrl || !voucher) return
+    try {
+      const doc = new jsPDF()
+      
+      // Header
+      doc.setFontSize(22)
+      doc.setTextColor(41, 128, 185)
+      doc.text("SPBU VOUCHER PASS", 105, 30, { align: "center" })
+
+      // Voucher Code
+      doc.setFontSize(14)
+      doc.setTextColor(100, 100, 100)
+      doc.text(`KODE: ${voucher.code}`, 105, 42, { align: "center" })
+
+      // QR Code Image
+      doc.addImage(qrDataUrl, "PNG", 65, 50, 80, 80)
+
+      // Value & Logic
+      let nominalText = ""
+      if (voucher.type === "FIXED") nominalText = formatCurrency(voucher.value)
+      else if (voucher.type === "CREDIT") nominalText = `${voucher.value} Liter`
+      else nominalText = `${voucher.value}% Diskon`
+
+      doc.setFontSize(26)
+      doc.setTextColor(0, 0, 0)
+      doc.text(nominalText, 105, 145, { align: "center" })
+
+      // Meta Info
+      doc.setFontSize(12)
+      doc.setTextColor(80, 80, 80)
+      doc.text(`Outlet: ${voucher.outlet?.name || "Semua Cabang"}`, 105, 160, { align: "center" })
+      doc.text(`Masa Berlaku: ${formatDate(voucher.expiryDate)}`, 105, 168, { align: "center" })
+      doc.text(`Status: ${voucher.status}`, 105, 176, { align: "center" })
+
+      // Footer
+      doc.setFontSize(10)
+      doc.setTextColor(150, 150, 150)
+      doc.text("Tunjukkan kode QR ini ke petugas saat melakukan transaksi.", 105, 200, { align: "center" })
+
+      doc.save(`Voucher-${voucher.code}.pdf`)
+      toast.success("Voucher PDF berhasil diekspor")
+    } catch (err) {
+      console.error(err)
+      toast.error("Gagal mambuat dokumen PDF")
     }
   }
 
@@ -160,30 +243,33 @@ export default function VoucherDetailPage() {
       <div className="grid gap-6 lg:grid-cols-3">
         {/* QR Code Card */}
         {showQrCode && (
-          <Card className="lg:row-span-2">
-            <CardHeader>
-              <CardTitle>QR Code Voucher</CardTitle>
-              <CardDescription>Scan untuk validasi voucher</CardDescription>
+          <Card className="lg:row-span-2 shadow-md hover:shadow-lg transition-shadow">
+            <CardHeader className="text-center pb-2">
+              <CardTitle>QR Code Validasi</CardTitle>
+              <CardDescription>Scan menggunakan kamera web/scanner</CardDescription>
             </CardHeader>
-            <CardContent className="flex flex-col items-center space-y-4">
-              {/* Placeholder QR Code */}
-              <div className="bg-white p-4 rounded-lg border-2 border-gray-200">
-                <div className="w-48 h-48 bg-gray-100 flex items-center justify-center">
-                  <QrCode className="h-32 w-32 text-gray-400" />
-                </div>
+            <CardContent className="flex flex-col items-center space-y-6 pt-4">
+              <div className="bg-white p-2 rounded-xl border-4 border-gray-100 shadow-sm relative">
+                {qrDataUrl ? (
+                  <img src={qrDataUrl} alt="QR Code" className="w-56 h-56 object-contain" />
+                ) : (
+                  <div className="w-56 h-56 flex bg-gray-50 items-center justify-center rounded-lg">
+                    <Loader2 className="w-8 h-8 text-gray-400 animate-spin" />
+                  </div>
+                )}
               </div>
               <div className="text-center">
-                <p className="text-lg font-bold text-gray-900">{voucher.code}</p>
-                <p className="text-sm text-gray-500 mt-1">Kode Voucher</p>
+                <p className="text-2xl font-bold tracking-widest text-gray-900 bg-gray-100 px-4 py-1 rounded inline-block">{voucher.code}</p>
+                <p className="text-sm text-gray-500 mt-2 font-medium uppercase tracking-wide">Kode Referensi</p>
               </div>
-              <div className="grid grid-cols-2 gap-2 w-full">
-                <Button variant="outline" size="sm" className="w-full">
-                  <Download className="h-4 w-4 mr-1" />
-                  PNG
+              <div className="grid grid-cols-2 gap-3 w-full">
+                <Button variant="outline" className="w-full flex" onClick={handleDownloadPNG}>
+                  <Download className="h-4 w-4 mr-2" />
+                  Simpan PNG
                 </Button>
-                <Button variant="outline" size="sm" className="w-full">
-                  <Printer className="h-4 w-4 mr-1" />
-                  Cetak
+                <Button variant="default" className="w-full bg-blue-600 hover:bg-blue-700 text-white" onClick={handlePrintPDF}>
+                  <Printer className="h-4 w-4 mr-2" />
+                  Unduh PDF
                 </Button>
               </div>
             </CardContent>
@@ -191,29 +277,27 @@ export default function VoucherDetailPage() {
         )}
 
         {/* Voucher Details */}
-        <Card className={showQrCode ? "" : "lg:col-span-2"}>
+        <Card className={showQrCode ? "lg:col-span-2" : "col-span-3"}>
           <CardHeader>
             <CardTitle>Informasi Voucher</CardTitle>
             <CardDescription>Detail lengkap voucher bahan bakar</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
+          <CardContent className="space-y-5">
+            <div className="flex items-center justify-between pb-4 border-b">
               <div>
-                <p className="text-sm text-gray-600">Status</p>
-                <div className="mt-1">{getStatusBadge(voucher.status)}</div>
+                <p className="text-sm font-semibold text-gray-500 mb-1 uppercase tracking-wider">Status Live</p>
+                <div>{getStatusBadge(voucher.status)}</div>
               </div>
               <div className="text-right">
-                <p className="text-sm text-gray-600">Tipe Voucher</p>
-                <p className="text-lg font-bold text-gray-900 mt-1">{voucher.type}</p>
+                <p className="text-sm font-semibold text-gray-500 mb-1 uppercase tracking-wider">Tipe Kuota</p>
+                <p className="text-xl font-bold text-gray-900 px-3 py-1 bg-gray-100 rounded inline-block">{voucher.type}</p>
               </div>
             </div>
 
-            <hr />
-
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-6 md:grid-cols-2 pb-4 border-b">
               <div>
-                <p className="text-sm text-gray-600">Nilai Voucher</p>
-                <p className="text-xl font-bold text-blue-600 mt-1">
+                <p className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Nominal Efektif</p>
+                <p className="text-3xl font-extrabold text-blue-600 mt-2">
                   {voucher.type === "FIXED"
                     ? formatCurrency(voucher.value)
                     : voucher.type === "CREDIT"
@@ -222,38 +306,42 @@ export default function VoucherDetailPage() {
                 </p>
               </div>
               <div>
-                <p className="text-sm text-gray-600">Masa Berlaku</p>
-                <p className="text-sm font-medium text-gray-900 mt-1">
+                <p className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Batas Masa Berlaku</p>
+                <p className="text-lg font-medium text-red-600 mt-2 flex items-center gap-2">
+                  <Clock className="w-5 h-5" />
                   {formatDate(voucher.expiryDate)}
                 </p>
               </div>
             </div>
 
-            <hr />
-
-            <div>
-              <p className="text-sm text-gray-600">Outlet SPBU</p>
-              <div className="mt-1">
-                <p className="text-sm font-medium text-gray-900">{voucher.outlet?.name || "-"}</p>
-                <p className="text-xs text-gray-500">{voucher.outlet?.code || "-"}</p>
-                <p className="text-xs text-gray-500 mt-1">{voucher.outlet?.address || "-"}</p>
+            <div className="pb-4 border-b">
+              <p className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2">Ditugaskan pada Outlet</p>
+              <div className="bg-gray-50 p-4 rounded-lg border">
+                <p className="text-base font-bold text-gray-900">{voucher.outlet?.name || "Global (Seluruh Cabang)"}</p>
+                <p className="text-sm font-medium text-gray-600 mt-1">{voucher.outlet?.code || "GLOBAL-ALL"}</p>
+                <p className="text-sm text-gray-500 mt-1">{voucher.outlet?.address || "Berlaku di semua stasiun SPBU terafiliasi"}</p>
               </div>
             </div>
 
-            <hr />
-
             <div>
-              <p className="text-sm text-gray-600">Dibuat Oleh</p>
-              <p className="text-sm font-medium text-gray-900 mt-1">{voucher.creator?.name || "-"}</p>
-              <p className="text-xs text-gray-500">{voucher.creator?.email || "-"}</p>
+              <p className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2">Penerbit Voucher</p>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center font-bold text-slate-600">
+                  {voucher.creator?.name?.charAt(0).toUpperCase() || "S"}
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-gray-900">{voucher.creator?.name || "System Administrator"}</p>
+                  <p className="text-xs text-gray-500">{voucher.creator?.email || "system@spbu.co.id"}</p>
+                </div>
+              </div>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2 text-xs text-gray-500">
+            <div className="grid gap-4 md:grid-cols-2 text-xs text-gray-400 mt-6 pt-4 border-t border-dashed">
               <div>
-                <p>Dibuat: {formatDate(voucher.createdAt)}</p>
+                <p>Waktu Pembuatan: {new Date(voucher.createdAt).toLocaleString("id-ID")}</p>
               </div>
-              <div>
-                <p>Diupdate: {formatDate(voucher.updatedAt)}</p>
+              <div className="md:text-right">
+                <p>Validasi Terakhir: {new Date(voucher.updatedAt).toLocaleString("id-ID")}</p>
               </div>
             </div>
           </CardContent>

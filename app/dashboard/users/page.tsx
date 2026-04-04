@@ -52,62 +52,19 @@ export default function UsersPage() {
   const fetchUsers = async () => {
     try {
       setLoading(true)
-      // For now, fetch from test endpoint
-      const response = await fetch("/api/test")
+      
+      const params = new URLSearchParams()
+      if (searchQuery) params.append("search", searchQuery)
+      if (roleFilter) params.append("role", roleFilter)
+      // Status filter is applied client-side because API might not support it yet
+
+      const response = await fetch(`/api/users?${params.toString()}`)
       const result = await response.json()
 
       if (result.success) {
-        // Mock users data - in real app, create proper API
-        const mockUsers: User[] = [
-          {
-            id: "1",
-            name: "Admin SPBU",
-            email: "admin@spbu.co.id",
-            phone: "08123456789",
-            role: "ADMIN",
-            outletId: null,
-            isActive: true,
-            emailVerified: false,
-            createdAt: new Date().toISOString(),
-          },
-          {
-            id: "2",
-            name: "Budi Santoso",
-            email: "budi@spbu.co.id",
-            phone: "08123456780",
-            role: "OWNER",
-            outletId: "outlet-1",
-            outlet: { id: "outlet-1", name: "SPBU 34-12345", code: "34-12345" },
-            isActive: true,
-            emailVerified: false,
-            createdAt: new Date().toISOString(),
-          },
-          {
-            id: "3",
-            name: "Ahmad Operator",
-            email: "ahmad@spbu.co.id",
-            phone: "08123456781",
-            role: "OPERATOR",
-            outletId: "outlet-1",
-            outlet: { id: "outlet-1", name: "SPBU 34-12345", code: "34-12345" },
-            isActive: true,
-            emailVerified: false,
-            createdAt: new Date().toISOString(),
-          },
-          {
-            id: "4",
-            name: "Siti Operator",
-            email: "siti@spbu.co.id",
-            phone: "08123456782",
-            role: "OPERATOR",
-            outletId: "outlet-2",
-            outlet: { id: "outlet-2", name: "SPBU 34-12346", code: "34-12346" },
-            isActive: true,
-            emailVerified: false,
-            createdAt: new Date().toISOString(),
-          },
-        ]
-        setUsers(mockUsers)
+        setUsers(result.data.users)
+      } else {
+        console.error("Gagal load users:", result.error)
       }
     } catch (err) {
       console.error("Failed to fetch users:", err)

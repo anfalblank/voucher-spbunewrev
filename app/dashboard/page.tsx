@@ -121,16 +121,16 @@ export default function DashboardPage() {
 
   const statsData = isAdmin
     ? [
-        { title: "Total Voucher", value: stats.totalVouchers.toString(), icon: Ticket, description: `Aktif: ${stats.activeVouchers}` },
-        { title: "Voucher Digunakan", value: stats.usedVouchers.toString(), icon: CheckCircle },
-        { title: "Voucher Expired", value: stats.expiredVouchers.toString(), icon: AlertCircle },
-        { title: "Outlet Aktif", value: stats.totalOutlets.toString(), icon: MapPin },
-        { title: "Total User", value: stats.totalUsers.toString(), icon: Users },
+        { title: "Total Voucher", value: stats.totalVouchers.toString(), icon: Ticket, description: `Aktif: ${stats.activeVouchers}`, href: "/dashboard/vouchers" },
+        { title: "Voucher Digunakan", value: stats.usedVouchers.toString(), icon: CheckCircle, href: "/dashboard/transactions" },
+        { title: "Voucher Expired", value: stats.expiredVouchers.toString(), icon: AlertCircle, href: "/dashboard/vouchers" },
+        { title: "Outlet Aktif", value: stats.totalOutlets.toString(), icon: MapPin, href: "/dashboard/sites" },
+        { title: "Total User", value: stats.totalUsers.toString(), icon: Users, href: "/dashboard/users" },
       ]
     : [
-        { title: "Total Voucher", value: stats.totalVouchers.toString(), icon: Ticket, description: `Aktif: ${stats.activeVouchers}` },
-        { title: "Voucher Digunakan", value: stats.usedVouchers.toString(), icon: CheckCircle },
-        { title: "Voucher Expired", value: stats.expiredVouchers.toString(), icon: AlertCircle },
+        { title: "Total Voucher", value: stats.totalVouchers.toString(), icon: Ticket, description: `Aktif: ${stats.activeVouchers}`, href: "/dashboard/vouchers" },
+        { title: "Voucher Digunakan", value: stats.usedVouchers.toString(), icon: CheckCircle, href: "/dashboard/transactions" },
+        { title: "Voucher Expired", value: stats.expiredVouchers.toString(), icon: AlertCircle, href: "/dashboard/vouchers" },
       ]
 
   const getVoucherStatusChange = () => {
@@ -259,6 +259,7 @@ export default function DashboardPage() {
                 value={stat.value}
                 icon={stat.icon}
                 description={stat.description}
+                href={stat.href}
               />
             ))}
           </div>

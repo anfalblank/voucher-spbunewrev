@@ -1,6 +1,6 @@
 "use client"
 
-import { useSession, signOut, authClient } from "@/lib/auth-client"
+import { useSession, authClient } from "@/lib/auth-client"
 import { usePathname } from "next/navigation"
 import Link from "next/link"
 import {
@@ -42,7 +42,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
     : navigation // Show all navigation if role not determined yet
 
   const handleLogout = async () => {
-    await signOut({
+    await authClient.signOut({
       fetchOptions: {
         onSuccess: () => {
           window.location.href = "/login"
